@@ -1,0 +1,472 @@
+--join
+SELECT *
+FROM departments;
+
+SELECT *
+FROM locations;
+
+SELECT department_id, department_name, location_id, city
+FROM departments NATURAL JOIN locations;
+
+--조인하면서 결과 왜곡! 겹치는 열이 두 개. 두 개가 다 같은 것만 결과에 보여줬음.
+SELECT employee_id, last_name, department_id, department_name
+FROM employees NATURAL JOIN departments;
+
+--natural join대신 join, using :특정 컬럼 지정
+SELECT employee_id, last_name, department_id, department_name
+FROM employees JOIN departments USING (department_id);
+
+--on절: 컬럼명 지정해줌(가장 구체적으로 지정해줌), 겹치는 컬럼은 테이블명.지정해줘!(안겹쳐도 적어줘도 됨)
+SELECT employee_id, last_name, employees.department_id,department_name
+FROM employees JOIN departments 
+ON(employees.department_id = departments.department_id);
+
+--간단하게 만들기: from절에서 테이블에 별칭
+SELECT e.employee_id, e.last_name, e.department_id, d.department_name
+FROM employees e JOIN departments d 
+ON(e.department_id = d.department_id); -- 부서 번호 없는 한 명은 안나타남.
+
+--부서번호 없어서 숨은 outer찾아오기! 
+SELECT e.employee_id, e.last_name, e.department_id, d.department_name
+FROM employees e LEFT OUTER JOIN departments d 
+ON(e.department_id = d.department_id); 
+
+SELECT e.employee_id, e.last_name, e.department_id, d.department_name
+FROM employees e RIGHT OUTER JOIN departments d 
+ON(e.department_id = d.department_id); 
+
+
+SELECT e.employee_id, e.last_name, e.department_id, d.department_name
+FROM employees e FULL OUTER JOIN departments d 
+ON(e.department_id = d.department_id); 
+
+SELECT *
+FROM job_grades;
+
+--사원의 급여 등급 표시
+SELECT e.employee_id, e.last_name, e.salary, j.grade_level
+FROM employees e JOIN job_grades j
+ON (e.salary BETWEEN j.lowest_sal AND j.highest_sal);
+
+--cross join :모든 경우의 수 가져옴
+SELECT last_name, department_name
+FROM employees CROSS JOIN departments;
+
+--error! 의도치 않게 cross join
+SELECT last_name, department_id
+FROM employees NATURAL JOIN departments;
+
+--3way join
+SELECT e.last_name,d.department_name, l.city
+FROM employees e JOIN  departments d
+ON (e.department_id = d.department_id)
+JOIN locations l
+ON(d.location_id = l.location_id);
+
+--selfJoin:하나의 테이블을 두 개 인것 처럼 
+--->반드시 별칭을 써야함 별칭 쓰면 원래이름이 사라지기 때문.
+SELECT e.employee_id, e.last_name, e.manager_id, m.last_name
+FROM employees e JOIN employees m
+ON(e.manager_id = m.manager_id);
+
+
+
+--<< 7장 >>
+--subquery
+
+SELECT salary
+FROM employees
+WHERE last_name = 'Abel';
+
+SELECT * 
+FROM employees
+WHERE salary >11000;
+
+--subquery
+SELECT * 
+FROM employees
+WHERE salary >(SELECT salary
+               FROM employees
+               WHERE last_name = 'Abel');
+               
+               
+               
+
+
+
+-- /////     example source       /////
+
+--Subquery의 기본 사용
+SELECT salary 
+FROM employees
+WHERE last_name = 'Abel';
+
+SELECT *
+FROM employees
+WHERE salary > 11000;
+
+SELECT *
+FROM employees
+WHERE salary > (SELECT salary 
+                FROM employees
+                WHERE last_name = 'Abel');
+                
+--단일행 서브쿼리(Single Row Subquery)
+SELECT last_name, job_id, salary
+FROM   employees
+WHERE  job_id =  
+                (SELECT job_id
+                 FROM   employees
+                 WHERE  last_name = 'Matos')
+AND    salary >
+                (SELECT salary
+                 FROM   employees
+                 WHERE  last_name = 'Matos');
+                 
+                 
+--그룹함수는 일반컬럼을 같이 못씀  대신 group by 썼음       
+SELECT MAX(salary) 
+FROM employees;       
+
+--그룹함수 이용한 서브쿼리 자주 씀!                 
+SELECT last_name, job_id, salary
+FROM   employees
+WHERE salary = (SELECT MAX(salary) 
+                FROM employees);
+  
+--having절에 서브쿼리              
+SELECT   department_id, COUNT(*)
+FROM     employees
+GROUP BY department_id
+HAVING  COUNT(*) > (SELECT COUNT(*)
+                    FROM   employees
+                    WHERE  department_id = 20);    
+                    
+                    
+SELECT last_name, job_id, salary
+FROM   employees
+WHERE salary = (SELECT MAX(salary) 
+                FROM employees
+                WHERE department_id = 60);   
+                
+--******************************************************             
+--다중 행 서브쿼리(Multiple Row Subquery)    
+
+SELECT MAX(salary) 
+FROM employees
+GROUP BY department_id;
+
+
+-- 다중행인데 연산자를 단일행껄로 씀.
+SELECT last_name, job_id, salary
+FROM   employees
+WHERE salary = (SELECT MAX(salary) 
+                FROM employees
+                GROUP BY department_id);
+
+-- 다중행 연산자 1. IN                
+SELECT last_name, job_id, salary
+FROM   employees
+WHERE salary IN (SELECT MAX(salary) 
+                 FROM employees
+                 GROUP BY department_id);  
+                 
+SELECT salary 
+FROM employees
+WHERE department_id = 60;   
+
+SELECT last_name, job_id, salary
+FROM   employees
+WHERE salary > (SELECT salary 
+                FROM employees
+                WHERE department_id = 60)
+AND department_id <> 60; 
+
+--다중행 연산자 2.any
+--60번 직원보다 크기만 하면 나옴
+SELECT last_name, job_id, salary
+FROM   employees
+WHERE salary >ANY (SELECT salary 
+                FROM employees
+                WHERE department_id = 60)
+AND department_id <> 60; 
+
+--60에서 최대값보다 큰 직원 보여줌
+SELECT last_name, job_id, salary
+FROM   employees
+WHERE salary >ALL (SELECT salary 
+                FROM employees
+                WHERE department_id = 60)
+AND department_id <> 60;
+
+
+--Subquery 사용 시 주의사항
+--조심! 조건이 잘못되면 아무것도 안나옴. mark없음. 해석 주의**
+SELECT last_name, job_id, salary
+FROM   employees
+WHERE salary > (SELECT salary
+                FROM employees
+                WHERE last_name = 'Mark');
+--매니저인 직원              
+SELECT employee_id, last_name
+FROM employees 
+WHERE employee_id IN (SELECT manager_id
+                      FROM employees);
+                      
+--메니저가 아닌 직원 근데 아무도 안나옴!   
+--not in  은 in 안의 값이 and로 묶여 있다. -->not null 꼭 넣어줘라!!!
+SELECT employee_id, last_name
+FROM employees 
+WHERE employee_id NOT IN (SELECT manager_id
+                          FROM employees);     
+       
+SELECT manager_id
+FROM employees;
+                   
+--in VS not in
+--cf) manager 없는 사원 안나옴(null값은 is null 써야)
+SELECT employee_id, last_name, manager_id
+FROM employees
+WHERE manager_id IN(100,101,NULL);
+
+
+--값 아무것도 안나옴~ not in -> and 가 되어서...
+--not in은 null이랑 만나면 안됨!
+SELECT employee_id, last_name, manager_id
+FROM employees
+WHERE manager_id NOT IN(100,101,NULL);
+
+SELECT employee_id, last_name, manager_id
+FROM employees
+WHERE manager_id NOT IN(100,101);
+
+
+--not null 꼭 넣어줘라!!!
+SELECT employee_id, last_name, manager_id
+FROM employees 
+WHERE employee_id NOT IN (SELECT manager_id
+                          FROM employees
+                          WHERE manager_id IS NOT NULL);   
+                          
+
+--------------------------------------------------------------
+--             문제풀이                   --
+SELECT ROUND(sysdate,'d')
+FROM dual;
+
+SELECT to_char( sysdate,'d')
+FROM dual;
+
+SELECT employee_id, last_name, job_id
+FROM   employees 
+WHERE  job_id LIKE '%SA\_ %' ESCAPE '\';
+
+DESCRIBE employees;
+SELECT employee_id, last_name, job_id, hire_date "STARTDATE"
+FROM employees;
+
+SELECT DISTINCT job_id
+FROM employees;
+
+SELECT job_id ||', '||last_name "EMPLOYEE and Title"
+FROM employees;
+
+
+SELECT last_name, salary
+FROM employees
+WHERE salary>12000;
+
+SELECT last_name, department_id
+FROM employees
+WHERE employee_id =176;
+
+SELECT last_name, salary
+FROM employees
+WHERE salary BETWEEN 5000 AND 12000;
+
+SELECT last_name, job_id, hire_date
+FROM employees
+WHERE last_name IN('Matos', 'Taylor')
+ORDER BY 3;
+
+SELECT last_name Employee , salary Salary
+FROM employees
+where salary between 5000 and 12000
+AND department_id IN (20,50);
+
+SELECT last_name, hire_date
+FROM employees
+WHERE hire_date LIKE '04%';
+
+SELECT last_name, job_id
+FROM employees
+WHERE manager_id IS null;
+
+SELECT last_name, salary, commission_pct
+FROM employees
+WHERE commission_pct is not null
+ORDER BY salary desc, commission_pct desc;
+
+SELECT last_name
+FROM employees
+where last_name LIKE '__a%';
+
+SELECT last_name
+FROM employees
+where last_name LIKE '%a%' 
+AND last_name LIKE '%e%';
+
+
+----------------------------------------------------------------
+
+SELECT DISTINCT job_id
+FROM employees;
+
+
+SELECT employee_id 사원번호, last_name 이름, salary 급여, department_id 부서번호
+FROM employees
+WHERE salary BETWEEN 7000 AND 12000
+AND last_name LIKE 'H%';
+
+
+SELECT TO_CHAR(sysdate, 'yyyy/mm/dd HH24:MM:SS DAY')
+FROM dual;
+
+SELECT employee_id, last_name, hire_date, SUBSTR(email,1,3), LENGTH(email)
+FROM employees
+WHERE hire_date >= to_date('99/01/01' ,'rr/mm/dd');
+
+SELECT last_name 이름, hire_date 입사일, ADD_MONTHS(hire_date, 6) "6개월 후", NEXT_DAY(hire_date,'금요일') 첫금요일,
+   TRUNC(MONTHS_BETWEEN( sysdate, hire_date)) 근무개월수, LAST_DAY(hire_date)+1 첫급여일
+FROM employees
+ORDER BY hire_date;
+
+
+SELECT employee_id 사원번호, last_name 이름 , TO_CHAR(salary*commission_pct, '$999,999.00') 수당
+FROM employees
+ORDER BY 3 desc;
+
+SELECT employee_id 사원번호, last_name 이름 ,job_id 업무ID, salary 급여, department_id 부서번호
+FROM employees
+WHERE department_id IN (50,60)
+AND salary >5000;
+
+SELECT employee_id 사원번호, job_id 업무id, phone_number 전화번호, department_id 부서번호
+FROM employees
+WHERE phone_number like '515%';
+
+SELECT  employee_id 사원번호, last_name 이름 , NVL2(commission_pct, commission_pct*salary*12 ,salary*12) 연봉, 
+        TO_CHAR(hire_date,'yyyy') 입사연도, NVL2(commission_pct,'COMM','NONCOMM') 비고, department_id 부서번호
+FROM employees
+ORDER BY department_id, salary;
+
+SELECT employee_id 사원번호, last_name 이름 , department_id 부서번호,
+CASE department_id WHEN 20 THEN 'Canada'
+                   WHEN 80 THEN 'UK'
+    ELSE 'USA' END "근무지역"
+FROM employees;
+
+
+
+-----------------------------------
+--  PRACTICE 6
+
+SELECT location_id, street_address, city, state_province,country_name
+FROM locations NATURAL join countries;
+
+SELECT last_name, department_id, department_name
+FROM employees JOIN departments
+USING (department_id);
+
+SELECT e.last_name, e.job_id, e.department_id, d.department_name
+FROM employees e JOIN departments d
+ON (e.department_id = d.department_id)
+JOIN locations l
+ON (d.location_id = l.location_id)
+WHERE LOWER(l.city) ='toronto';
+
+SELECT e.last_name Employee, e.employee_id "Emp#", m.last_name "Manager", m.employee_id "Mgr#"
+FROM employees e JOIN employees m
+ON (e.manager_id = m.employee_id);
+
+---------------------------------
+-------SECTION 8 ---------------
+
+--직무변경이 있었던 사람
+SELECT *
+FROM job_history;
+
+
+--집합연산 명령문: union
+SELECT employee_id FROM employees
+UNION
+SELECT employee_id FROM job_history;
+
+--컬럼 두 개 쓰면 두 개가 동시에 같아야 안나옴.(중복도가 낮아짐)
+-- 1)컬럼 수는 항상 맞아야 한다. 
+SELECT employee_id, job_id FROM employees
+UNION
+SELECT employee_id, job_id FROM job_history;
+
+-- 2)대응되는 컬럼끼리 데이터 타입이 맞아야...
+SELECT employee_id , department_id FROM employees
+UNION
+SELECT employee_id , job_id FROM job_history;
+
+--3)합치면서 컬럼의 제목은 앞에있는 테이블의 제목 사용.
+SELECT employee_id empno, job_id FROM employees
+UNION
+SELECT employee_id , job_id job_title FROM job_history;
+--ORDER BY job_id; --4) 정렬을 자동으로 앞에걸로 일어남. 한 번 더 정렬하는 꼴.
+
+--5)union all은 정렬을 하지 않는다.(중복 안찾음)
+SELECT employee_id , job_id FROM employees
+UNION ALL
+SELECT employee_id , job_id FROM job_history;
+
+--<<교집합!>>
+--부서 이동 한 후 다시 돌아온 사람들 검색,
+SELECT employee_id , job_id FROM employees
+INTERSECT
+SELECT employee_id , job_id FROM job_history;
+--부서이동 경험자
+SELECT employee_id  FROM employees
+INTERSECT
+SELECT employee_id FROM job_history;
+--부서이동 무경험자
+SELECT employee_id  FROM employees
+MINUS
+SELECT employee_id FROM job_history;
+
+--부서이동은 했지만 퇴사한 사람들. // minus는 교환, 분배법칙 이런거 안됨. 
+SELECT employee_id  FROM job_history
+MINUS
+SELECT employee_id FROM employees;
+
+--1. 전체사원에 대해 사원 수 , 평균 급여(정수로), 총 급여 
+SELECT count(*), TRUNC(AVG(salary)) "Average", SUM(salary)
+FROM employees;
+
+--2. 부서별 사원 수 , 평균 급여(정수로), 총 급여
+SELECT department_id, count(*), TRUNC(AVG(salary)) "Average", SUM(salary)
+FROM employees
+GROUP BY department_id;
+
+--3. 부서- 업무id사원 수 , 평균 급여(정수로), 총 급여
+SELECT department_id, job_id, count(*), TRUNC(AVG(salary)) "Average", SUM(salary)
+FROM employees
+GROUP BY department_id, job_id;
+
+
+--세게 합치려면 =>컬럼 수, 타입 같게 해야.
+SELECT TO_NUMBER(null) "부서번호", TO_CHAR(null) "업무 아이디",count(*) "사원 수", TRUNC(AVG(salary)) "평균급여", SUM(salary) "총급여"
+FROM employees
+union
+SELECT department_id, TO_CHAR(null), count(*), TRUNC(AVG(salary)) "Average", SUM(salary)
+FROM employees
+GROUP BY department_id
+UNION
+SELECT department_id, job_id, count(*), TRUNC(AVG(salary)) "Average", SUM(salary)
+FROM employees
+GROUP BY department_id, job_id
+ORDER BY 1,2;
