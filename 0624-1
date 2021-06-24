@@ -1,0 +1,439 @@
+--<<영업관리자>>
+--사원테이블이 영업관리에 없네?
+SELECT * FROM employees; --이건 hr 한테 있다.
+SELECT * FROM hr.employees; -- 개별 테이블 볼 권한은 없어서 ㅠ
+SELECT * FROM hr.departments;
+
+SELECT * FROM hr.emp_dept_list_vu; --view볼 수 있는 권한만 있음. 
+SELECT * FROM e;
+
+UPDATE hr.employees
+SET salary = salary*1.1;
+
+
+--누구나 볼 수 있는거니까~
+select * from hr.dept_city_vu;
+select * from d;
+
+--사본
+SELECT * FROM dept80;
+--원본
+SELECT salary*12 FROM employees 
+WHERE department_id=80;
+--원본 수정했다고 사본이 수정되지는 않.. 서로 다른 친구임!
+UPDATE employees 
+SET salary = salary+200
+where department_id = 80;
+
+--creating view
+CREATE VIEW dept80_vu
+AS 
+SELECT employee_id, last_name, salary*12 AS "annsal", hire_date
+FROM employees
+WHERE department_id =80;
+
+DESC dept80_vu;
+--그렇지만 뷰는 데이터가 아닌 쿼리를 저장해놓기 때문에 원본 업데이트 된거 볼 수 있다.
+SELECT * from dept80_vu;
+
+--뷰 생성과 사용
+--simple view: 80은 변경없이 만듬. // 뷰 통해 수정가능! 
+CREATE VIEW    empvu80
+AS SELECT  employee_id, last_name, salary
+FROM    employees
+WHERE   department_id = 80;
+
+--complex view: 
+CREATE VIEW    salvu50
+AS SELECT  employee_id ID_NUMBER, last_name NAME, salary*12 ANN_SALARY
+FROM    employees
+WHERE   department_id = 50;
+
+DESC empvu80
+SELECT * FROM empvu80;
+
+DESC salvu50
+SELECT * FROM salvu50;
+
+--뷰와 복사된 테이블 비교
+SELECT * FROM dept80;
+UPDATE employees
+SET salary = salary*1.1;
+
+COMMIT;
+SELECT * FROM empvu80;
+SELECT * FROM dept80;
+SELECT * FROM salvu50;
+
+--뷰 관련 데이터딕셔너리 정보 확인
+SELECT view_name, text
+FROM user_views;
+
+--뷰수정하기
+--hire_date 추가
+CREATE OR REPLACE VIEW    salvu50
+AS SELECT  employee_id ID_NUMBER, last_name NAME, salary*12 ANN_SALARY,
+           hire_date           
+FROM    employees
+WHERE   department_id = 50;
+
+DESC salvu50;
+select * from salvu50;
+
+SELECT view_name, text
+FROM user_views;
+
+--딕셔너리에서 복붙해와서 create~ as까지 작성해주고 아래에 원하는 내용으로 수정.
+CREATE OR REPLACE VIEW dept80_vu
+as
+SELECT employee_id, last_name, salary*12 AS "annsal", job_id, hire_date
+FROM employees
+WHERE department_id =80;
+
+
+SELECT   d.department_name, MIN(e.salary), 
+            MAX(e.salary),TRUNC(AVG(e.salary))
+   FROM     employees e JOIN departments d
+   ON       (e.department_id = d.department_id)
+   GROUP BY d.department_name;
+
+--COMPLEX VIEW 생성(뷰에서 테이블 수정 불가. )
+CREATE OR REPLACE VIEW dept_sum_vu
+  (name, minsal, maxsal, avgsal)  -- 별칭이 뷰를 이용하는 동안 사용됨. 여기 또는 밑에 가능.
+AS SELECT   d.department_name, MIN(e.salary), 
+            MAX(e.salary),TRUNC(AVG(e.salary))
+   FROM     employees e JOIN departments d
+   ON       (e.department_id = d.department_id)
+   GROUP BY d.department_name;
+   
+SELECT * FROM dept_sum_vu;
+
+--WITH CHECK OPTION 사용
+CREATE OR REPLACE VIEW empvu80
+AS SELECT  employee_id, last_name, salary, department_id
+FROM    employees
+WHERE   department_id = 80;
+
+SELECT * FROM empvu80;
+UPDATE empvu80
+SET salary = 9800
+WHERE employee_id = 176;
+
+SELECT * FROM empvu80;
+
+SELECT employee_id, salary FROM employees
+WHERE employee_id = 176;
+
+ROLLBACK;
+
+UPDATE empvu80
+SET department_id = 60
+WHERE employee_id = 176;
+
+SELECT * FROM empvu80;
+
+SELECT employee_id, department_id 
+FROM employees
+WHERE employee_id = 176;
+
+ROLLBACK;
+
+SELECT * FROM empvu80;
+
+CREATE OR REPLACE VIEW empvu80
+AS SELECT  employee_id, last_name, salary, department_id
+FROM    employees
+WHERE   department_id = 80
+WITH CHECK OPTION; --체크 옵션있으면 where절의 범위 못벗어나게 함.
+
+UPDATE empvu80
+SET department_id = 60
+WHERE employee_id = 176; -- 얘는 불가능(뷰에서는 실행하면 못보게되니까)
+
+UPDATE empvu80
+SET salary = 9800
+WHERE employee_id = 176;  -- 얘는 가능
+
+ROLLBACK;
+
+
+--WITH READ ONLY 옵션
+CREATE OR REPLACE VIEW empvu80
+AS SELECT  employee_id, last_name, salary, department_id
+FROM    employees
+WHERE   department_id = 80
+WITH READ ONLY;
+
+UPDATE empvu80
+SET salary = 9800
+WHERE employee_id = 176;
+
+--뷰의 삭제
+SELECT view_name, text
+FROM user_views;
+
+DROP VIEW empvu80;
+
+-------------------------------------------------------------------------
+--                          << 인덱스 >>
+
+
+--자동 인덱스 생성
+CREATE TABLE emp
+(empno NUMBER(6) PRIMARY KEY,
+ename VARCHAR2(25) NOT NULL,
+email VARCHAR2(50) CONSTRAINT emp_mail_nn NOT NULL
+                   CONSTRAINT emp_mail_uk UNIQUE,
+phone_no CHAR(11) NOT NULL,
+job VARCHAR2(20),
+salary NUMBER(8) CHECK(salary>2000),
+deptno NUMBER(4));
+
+--제약조건 관련 딕셔너리 정보 보기
+SELECT constraint_name, constraint_type, search_condition
+FROM user_constraints
+WHERE table_name = 'EMP';
+
+SELECT cc.column_name, c.constraint_name
+FROM user_constraints c JOIN user_cons_columns cc
+ON (c.constraint_name = cc.constraint_name)
+WHERE c.table_name = 'EMP';
+
+--자동으로 인덱스 생성시 제약조건으로 인덱스 이름 만들어짐
+SELECT table_name, index_name
+FROM user_indexes
+WHERE table_name = 'EMP';
+
+--수동으로 인덱스 생성
+CREATE INDEX emp_ename_idx ON emp(ename);
+
+SELECT table_name, index_name
+FROM user_indexes
+WHERE table_name = 'EMP';
+
+--인덱스 삭제
+DROP INDEX emp_email_uk; -- 자동으로 만들어진 인덱스는 삭제 못함. 제약조건 삭제 하면 자동 삭제
+DROP INDEX emp_ename_idx;
+
+SELECT table_name, index_name
+FROM user_indexes
+WHERE table_name = 'EMP';
+
+--전화번호의 캐릭터 수 늘려줌
+ALTER TABLE emp
+MODIFY phone_no CHAR(20);
+
+--EMP에 삽입
+INSERT INTO emp
+SELECT employee_id, last_name, email, phone_number, job_id, salary, department_id
+FROM employees;
+commit;
+
+SELECT * FROM emp
+WHERE ename ='Fay';
+
+SELECT view_name, text
+FROM user_views;
+
+SELECT * FROM empvu80;
+
+
+--      << Sequence >>
+
+--시퀀스의 생성
+
+CREATE SEQUENCE dept_deptid_seq
+                INCREMENT BY 10
+                START WITH 200
+                MAXVALUE 9999
+                NOCACHE
+                NOCYCLE;
+                
+INSERT INTO departments(department_id, department_name, location_id)
+VALUES      (dept_deptid_seq.NEXTVAL, 'Support', 2500);
+
+SELECT * FROM departments;
+rollback; -- rollback해도 그 번호 회수해서 쓰는게 아니라 다음 값 씀!(skip 됨)
+
+INSERT INTO departments(department_id, department_name, location_id)
+VALUES      (dept_deptid_seq.NEXTVAL, 'Support', 2500);
+
+SELECT * FROM departments;
+
+COMMIT;
+
+--시퀀스 수정: 수정 안되는거는 start with -> 시퀀스 지우고 다시 만들어야 함. 
+ALTER SEQUENCE dept_deptid_seq
+               INCREMENT BY 20
+               MAXVALUE 999999
+               NOCACHE
+               NOCYCLE;
+               
+--시퀀스가 몇 번까지 썼는지 알고 싶다?
+SELECT dept_deptid_seq.currval FROM dual;
+               
+               
+DROP SEQUENCE dept_deptid_seq;
+
+
+-----------------
+SELECT COUNT(*) FROM bigemp;
+
+INSERT INTO bigemp
+SELECT * FROM EMPLOYEES;
+
+INSERT INTO bigemp
+SELECT * FROM bigemp;
+
+rollback;
+
+--시퀀스 하기 전에는 마음대로 나오는데 하고나면 순서대로
+SELECT min(employee_id), max(employee_id), count(*)
+FROM bigemp;
+
+--시퀀스 생성
+CREATE SEQUENCE bigemp_id_seq
+INCREMENT BY 1
+START WITH 1001
+NOCACHE
+NOCYCLE;
+
+--시퀀스 번호따라 정렬됨
+UPDATE bigemp
+SET employee_id = bigemp_id_seq.nextval;
+
+commit;
+
+DESC USER_sequences;
+
+-----------------------------------------------------
+--            << 동의어 >>
+
+--동의어 생성
+SELECT * FROM dept_sum_vu;
+
+CREATE SYNONYM d_sum FOR dept_sum_vu;
+
+SELECT * FROM d_sum;
+
+--동의어 관련 데이터딕셔너리 보기
+SELECT synonym_name, table_owner, table_name
+FROM user_synonyms;
+
+--동의어 삭제
+DROP SYNONYM d_sum;
+
+--11 단원 실습정리 
+DROP TABLE emp;
+
+--테이블 삭제 시 기타 객체들에 대한 정보 확인하기
+CREATE TABLE test
+(empno NUMBER(6) PRIMARY KEY,
+ename VARCHAR2(25) NOT NULL,
+email VARCHAR2(50) CONSTRAINT emp_mail_nn NOT NULL
+                   CONSTRAINT emp_mail_uk UNIQUE,
+phone_no CHAR(11) NOT NULL,
+job VARCHAR2(20),
+salary NUMBER(8) CHECK(salary>2000),
+deptno NUMBER(4));
+
+CREATE INDEX test_job_ix 
+ON test(job);
+
+CREATE SEQUENCE test_no_seq
+INCREMENT BY 1
+START WITH 301
+NOCACHE
+NOCYCLE;
+
+CREATE VIEW test_sum_vu
+AS
+SELECT empno, ename, job, deptno
+FROM test;
+
+CREATE SYNONYM t
+FOR test_sum_vu;
+
+SELECT table_name, index_name
+FROM user_indexes
+WHERE table_name = 'TEST';
+
+SELECT object_name,object_type, status FROM user_objects
+WHERE object_name LIKE 'TEST%' OR object_name ='T';
+
+DROP TABLE test;
+
+SELECT table_name, index_name
+FROM user_indexes
+WHERE table_name = 'TEST';
+
+SELECT object_name,object_type, status FROM user_objects
+WHERE object_name LIKE 'TEST%' OR object_name ='T';
+
+DROP sequence test_no_seq;
+DROP VIEW test_sum_vu;
+DROP SYNONYM t;
+
+--테이블 삭제하고 이름 같은거 다시 만들면 이전 객체 그대로 쓸 수 있음. invailed뜨는거는 실행한번 해 주면 vaild뜸
+SELECT * FROM test_sum_vu;
+
+--hr의 권한 보기
+SELECT * FROM session_privs;
+--role보기
+SELECT * FROM session_roles;
+
+-- sales 에게 객체 권한 주기(테이블 전체 보여주기-> 민감한 데이터도보여지는 문제 생김)
+GRANT SELECT on employees TO sales;
+--그러니까 회수하자!
+REVOKE SELECT on employees FROM sales;
+
+--view에 대한 권한주기
+--1)VIEW생성
+CREATE OR REPLACE VIEW emp_dept_lisT_vu
+AS
+SELECT employee_id, first_name||' '|| last_name As emp_name,
+    job_id, department_name
+FROM employees JOIN departments
+USING (department_id)
+WHERE department_id <>90;  --사장, 부사장 정보 뺌
+
+SELECT * FROM emp_dept_list_vu;
+
+--2) 볼 수 있는 권한 주기
+GRANT select on hr.emp_dept_list_vu TO sales;
+
+--GRANT select on e TO sales;
+
+--원본에서 부서 이동하면? view에서도 사라짐. 
+UPDATE employees
+SET department_id = 90
+WHERE employee_id = 103;
+commit;
+
+--3)동의어 만들어주기
+CREATE synonym e for hr.emp_dept_list_vu;
+
+select * from e;
+
+--동의어 확인법? 데이터 사전 가자~!
+SELECT * FROM  user_synonyms;
+
+--권한 회수
+REVOKE select on hr.emp_dept_list_vu FROM sales;
+
+--public에 주기
+CREATE OR REPLACE VIEW dept_city_vu
+AS
+SELECT  department_id deptno , department_name departname, city
+FROM departments JOIN locations
+using (location_id);
+
+select * from dept_city_vu;
+
+GRANT SELECT ON hr.dept_city_vu TO public;
+
+--public synonym만들기
+--1)내 권한 확인
+select * from session_privs;
+--2) public sysnonym 이랑 그냥이랑 다름.
+CREATE public synonym d for hr.dept_city_vu ;
