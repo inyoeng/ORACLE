@@ -1,0 +1,117 @@
+-- <<  제 2 권 - 1  >>
+
+--Create a Table For Test
+drop table dept80 purge;
+
+create table dept80
+as
+select employee_id, last_name, salary*12 as annsal, hire_date
+from employees
+where department_id = 80;
+
+desc dept80
+select * from dept80;
+
+--Adding a Column
+
+alter table dept80
+add job varchar2(10);
+
+desc dept80
+select * from dept80;
+
+--modifying a Column
+alter table dept80
+modify last_name varchar2(30);
+
+desc dept80;
+
+--1. 기존테이블에 기본값 줌
+ALTER TABLE dept80 
+MODIFY job default 'NOT YET';
+--2. 하지만 아직 들어가있진 않음. 자동으로 디폴트 값이 들어가진 않음.
+select * from dept80;
+--3. 이를 업데이트 시킴
+UPDATE dept80 
+SET job = default;
+
+--Dropping a Column
+alter table dept80
+drop column hire_date;
+
+select * from dept80;
+
+--unused -> desc, select 해도 안나옴
+alter table dept80
+set unused column annsal;
+
+desc dept80
+
+select * from dept80;
+--그래도 drop 해줘야 진짜 없어짐.
+alter table dept80
+drop unused columns;
+
+-------------------
+CREATE TABLE emp2
+AS
+SELECT * FROM employees;
+
+--복사할 때 제약 조건 중 nn만 복사 됨
+SELECT constraint_name, constraint_type, status, search_condition
+FROM user_constraints
+WHERE table_name = 'EMP2';
+
+--primary key
+ALTER TABLE emp2
+ADD primary key(employee_id);
+
+ALTER TABLE emp2
+ADD constraint emp2_mgrid_kf
+FOREIGN KEY (manager_id) REFERENCES emp2; --둘은 enable상태
+
+SELECT * FROM emp2;
+
+UPDATE emp2 
+set employee_id = 216
+WHERE employee_id = 206;
+
+rollback;
+
+--외래키 위배해보기
+UPDATE emp2 
+set manager_id = 101
+WHERE employee_id = 200; -- 사원중에 200번이 없어서 ㅠ
+
+--외래키 제약조건 꺼보기
+ALTER TABLE emp2
+DISABLE CONSTRAINT emp2_mgrid_kf;
+
+--다시 켜기 : cannot validate (HR.EMP2_MGRID_KF) - parent keys not found
+--위배되는 행이 있어서 바로 안켜짐
+ALTER TABLE emp2
+ENABLE CONSTRAINT emp2_mgrid_kf;
+
+--기본키 끄기(기본키는 이름이 하나. 이름 안정해줘도 됨) but 기본키는 끄기 어려움. 참조하는 외래키가 많아서.
+ALTER TABLE emp2
+DISABLE primary key;
+
+--1. 기본키를 참조하는 외래키 다 끄고 하거나 
+--2. cascade
+ALTER TABLE emp2
+DISABLE primary key CASCADE; 
+
+--기본키 켜기(CASCADE없어.... 외래키는 하나하나 찾아서)
+ALTER TABLE emp2
+ENABLE primary key;
+
+SELECT constraint_name, constraint_type, status, search_condition
+FROM user_constraints
+WHERE table_name = 'EMP2';
+
+
+--제약조건 삭제하기 (PRIMARY키 삭제하면 외래키 다 같이 지워짐)
+ALTER TABLE emp2
+DROP primary key CASCADE;
+
+--컬럼 삭제할 때는 CASCADE constraints까지 해줘야함 .
