@@ -37,13 +37,13 @@ DESC dept80_vu;
 SELECT * from dept80_vu;
 
 --뷰 생성과 사용
---simple view: 80은 변경없이 만듬. // 뷰 통해 수정가능! 
+--simple view: 80은 변경없이 만. // 뷰 통해 수정가능! 
 CREATE VIEW    empvu80
 AS SELECT  employee_id, last_name, salary
 FROM    employees
 WHERE   department_id = 80;
 
---complex view: 
+--complex view: 컴플렉스 뷰에서는 DML사용 안돼.
 CREATE VIEW    salvu50
 AS SELECT  employee_id ID_NUMBER, last_name NAME, salary*12 ANN_SALARY
 FROM    employees
