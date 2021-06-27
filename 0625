@@ -1,0 +1,637 @@
+--Create a Table For Test
+drop table emp2 purge;
+
+create table emp2
+as
+select * from employees;
+
+select table_name, constraint_name, constraint_type, status, search_condition
+from user_constraints
+where table_name = 'EMP2';
+
+--Adding a Constraints
+alter table emp2
+add primary key(employee_id);
+
+alter table emp2
+add constraint emp2_email_uk unique (email);
+select table_name, constraint_name, constraint_type, status,search_condition
+from user_constraints
+where table_name = 'EMP2';
+
+--Disable a Constraints
+alter table emp2
+disable primary key;
+update emp2
+set employee_id = 102
+where employee_id = 101;
+
+commit;
+
+alter table emp2
+disable constraint emp2_email_uk;
+
+select table_name, constraint_name, constraint_type, status
+from user_constraints
+where table_name = 'EMP2';
+
+--Enabling a Constraints
+alter table emp2
+enable constraint emp2_email_uk;
+
+alter table emp2
+enable primary key; 
+
+SELECT *
+FROM emp2;
+
+SELECT employee_id, rowid
+FROM emp2;
+
+UPDATE emp2
+SET employee_id = 101
+WHERE rowid='AAAE84AAEAAAAGrAAB';
+
+SELECT *
+FROM emp2;
+
+COMMIT;
+ALTER TABLE emp2
+ENABLE primary key;
+
+select table_name, constraint_name, constraint_type, status
+from user_constraints
+where table_name = 'EMP2';
+
+--Dropping a Constraints
+alter table emp2 
+drop primary key;
+
+alter table emp2
+drop constraint emp2_email_uk;
+select table_name, constraint_name, constraint_type, status
+from user_constraints
+where table_name = 'EMP2';
+
+--Cascading Constraints
+--Column Drop 시 추가 옵션
+CREATE TABLE test1(
+pk NUMBER PRIMARY KEY,
+fk NUMBER,
+col1 NUMBER,
+col2 NUMBER,
+CONSTRAINT fk_constraint FOREIGN KEY (fk) REFERENCES test1,
+--두 개가 겹쳐저있는 제약조건
+CONSTRAINT ck1 CHECK (pk > 0 and col1 > 0),
+CONSTRAINT ck2 CHECK (col2 > 0));
+
+desc test1
+
+--제약조건 보기
+select table_name, constraint_name, constraint_type, status
+from user_constraints
+where table_name = 'TEST1';
+--얘는 그냥 삭제됨
+alter table test1
+drop column col2;
+
+alter table test1
+drop column col1;
+
+alter table test1
+drop column pk;
+
+--cascade constraints 써야 날아감
+alter table test1
+drop column pk cascade constraints;
+
+desc test1
+
+select table_name, constraint_name, constraint_type, status
+from user_constraints
+where table_name = 'TEST1';
+
+alter table test1 
+drop column col1 cascade constraints;
+
+desc test1
+select table_name, constraint_name, constraint_type, status
+from user_constraints
+where table_name = 'TEST1';
+
+--Renaming Table Columns and Contraints
+DESC emp2
+alter table emp2
+rename column employee_id to empid;
+
+desc emp2
+alter table emp2
+add constraint emp2_pk primary key(empid);
+
+select table_name, constraint_name, constraint_type, status
+from user_constraints
+where table_name = 'EMP2';
+
+alter table emp2
+rename constraint emp2_pk to emp2_empid_pk;
+select table_name, constraint_name, constraint_type, status
+from user_constraints
+where table_name = 'EMP2';
+
+--Clean Test
+drop table emp2 purge;
+drop table test1 purge;
+
+
+--Create Index with the Create Table statement
+create table emp2
+(empid number(6) primary key,
+empname varchar2(30),
+salary number(6),
+department_id number(3));
+
+select table_name, constraint_name, constraint_type, status
+from user_constraints
+where table_name = 'EMP2';
+
+SELECT table_name, index_name
+FROM user_indexes
+WHERE table_name = 'EMP2';
+
+drop table emp2 purge;
+
+create table emp2
+(empid number(6) primary key using index
+            (create index emp2_empid_idx on emp2(empid)),
+empname varchar2(30),
+salary number(6),
+department_id number(3));
+select table_name, constraint_name, constraint_type, status
+from user_constraints
+where table_name = 'EMP2';
+SELECT table_name, index_name
+FROM user_indexes
+WHERE table_name = 'EMP2';
+
+--Function Based Indexes
+create index emp2_sal_ix on emp2(salary);
+alter index emp2_sal_ix monitoring usage;
+select * from emp2
+where salary*12 > 80000;
+select * from v$object_usage;
+drop index emp2_sal_ix;
+create index emp2_annsal_ix on emp2(salary*12);
+alter index emp2_annsal_ix monitoring usage;
+select * from emp2
+where salary*12 > 80000;
+select * from v$object_usage;
+--Clear Test
+drop index emp2_annsal_ix;
+
+--Drop Table with Recyclebin
+drop table emp2;
+desc emp2
+select * from emp2;
+show recyclebin;
+flashback table emp2 to before drop;
+desc emp2
+select * from emp2;
+show recyclebin;
+drop table emp2 purge;
+show recyclebin;
+flashback table emp2 to before drop;
+purge recyclebin;
+show recyclebin;
+
+
+--External Table Test
+--탐색기를 실행하고 c:\db_test\mydir1 폴더생성
+--c:\db_test\sql_labs의 emp.dat 파일을 c:\db_test\mydir1 경로로 복사해두기
+--Run SQL CommandLine을 실행한 후 관리자가 디렉토리 객체 생성 및 권한 부여
+
+
+--SQL Developer를 실행한 후 오라클 로더를 사용하는 외부테이블 생성 
+CREATE TABLE empxt (empno       NUMBER(4),
+                        ename       VARCHAR2(10),
+                         job         VARCHAR2(9),
+                         mgr         NUMBER(4),
+                         hiredate    DATE,
+                         sal         NUMBER(7,2),
+                         comm        NUMBER(7,2),
+                         deptno      NUMBER(2)
+                        )
+          ORGANIZATION EXTERNAL
+           (
+           --ORACLE LOADER: 비 오라클 파일을 오라클 형식의 ROW로 로딩함((이기종의 데이터 베이스 오라클로 가져오기 위해))
+            TYPE ORACLE_LOADER
+            DEFAULT DIRECTORY dir_1
+            ACCESS PARAMETERS
+            (
+              --한 줄에 한 칸씩
+              records delimited by newline 
+              -- 잘못된 파일을 넣어둠
+              badfile dir_1:'empxt.bad' 
+              -- 로그파일 항상 만들어짐, 히스토리
+              logfile dir_1:'empxt.log' 
+               -- 필드는 ,로 구분.
+              fields terminated by ','  
+              -- 값이 없으면 NULL로 처리
+              missing field values are null 
+              ( empno, ename, job, mgr,
+               hiredate char date_format date mask "dd-mon-yy",
+                sal, comm, deptno
+              )
+            )
+            LOCATION ('emp.dat')
+          );
+
+SELECT * FROM empxt; 
+
+
+--오라클 '데이터펌프'를 사용하는 외부테이블 생성
+-- OS에서 데이터 접근했을 때 위에 꺼랑 달리 이진데이터 바이너리 값이라서 정보가 유출될 일 없음+ 수정 할 수도 없음. 
+create table empxt2
+      Organization external
+     (type oracle_datapump
+      Default directory dir_1
+      Location('emp2.dat'))
+      As
+      Select * from employees;
+
+SELECT * FROM empxt2;
+
+--Clear Test
+drop table empxt;
+drop table empxt2;
+
+----------------------------------------------------------------------------
+--                              4단원
+
+-- RETRIVING DATA BY USING A SUBQUERY AS SOURCE
+--               Inline view
+SELECT department_name, city
+FROM departments
+NATURAL JOIN (SELECT l.location_id, l.city, l.country_id
+              FROM locations l
+              JOIN countries c
+              ON (l.country_id =c.country_id)
+              JOIN regions USING(region_id)
+              WHERE region_name = 'Europe');
+            
+SELECT l.location_id, l.city, l.country_id
+FROM locations l
+JOIN countries c
+ON (l.country_id =c.country_id)
+JOIN regions USING(region_id)
+WHERE region_name = 'Europe';
+
+
+----------------------------------------------------------------
+--                <<Multi table insert >>
+
+
+--테이블 생성
+@c:\db_test\sql_labs\cre_minstab.sql 
+
+SELECT * FROM tab;
+
+--Unconditional Insert Test
+SELECT employee_id EMPID, hire_date HIREDATE, salary SAL, manager_id MGR 
+FROM  employees
+WHERE employee_id > 200;
+
+--조건없이 ALL
+--한 번만 읽어서 into가 여러번 일어남
+INSERT  ALL
+INTO sal_history VALUES(EMPID,HIREDATE,SAL)
+INTO mgr_history VALUES(EMPID,MGR,SAL)
+SELECT employee_id EMPID, hire_date HIREDATE, salary SAL, manager_id MGR 
+FROM  employees
+WHERE employee_id > 200;
+
+SELECT * FROM sal_history;
+SELECT * FROM mgr_history;
+ROLLBACK;
+
+--조건 ALL INSERT
+INSERT ALL
+WHEN SAL > 10000 THEN
+INTO sal_history VALUES(EMPID,HIREDATE,SAL)
+WHEN MGR > 200   THEN 
+INTO mgr_history VALUES(EMPID,MGR,SAL)  
+    SELECT employee_id EMPID,hire_date HIREDATE,  
+           salary SAL, manager_id MGR 
+    FROM   employees
+    WHERE  employee_id > 200;
+
+SELECT * FROM sal_history;
+SELECT * FROM mgr_history;
+COMMIT;
+
+
+--조건 FIRST INSERT
+--첫번째 when조건이 맞으면 그행은 다음에 안봄.(아래쪽 테이블에는 안들어감)
+--그러나 첫번째가 안맞는 행은 뒤로 감
+INSERT FIRST   
+WHEN SAL  > 25000  THEN    
+INTO special_sal VALUES(DEPTID, SAL) 
+WHEN HIREDATE like ('%10%') THEN    
+INTO hiredate_history_10 VALUES(DEPTID,HIREDATE)  
+WHEN HIREDATE like ('%09%') THEN
+INTO hiredate_history_09 VALUES(DEPTID, HIREDATE)
+  ELSE  INTO hiredate_history VALUES(DEPTID, HIREDATE)
+  SELECT department_id DEPTID, SUM(salary) SAL, MAX(hire_date) HIREDATE  
+  FROM   employees
+  GROUP BY department_id;
+
+SELECT * FROM special_sal;
+SELECT * FROM hiredate_history_10;
+SELECT * FROM hiredate_history_09;
+SELECT * FROM hiredate_history;
+COMMIT;
+
+--  << 피벗 INSERT >> 
+-- 테이블 재구성하기
+--비슷한 속성을 가진 열 펼쳐져 있음(사람별, 주별 grop by를 못함...! 집계가 안된다. ) 1정규형만 만족시킴
+DESC sales_source_data
+SELECT * FROM sales_source_data;
+
+--시퀀스(( pk(sales_no)로 쓸거)) 및 피벗구조의 새로운 테이블 생성
+CREATE SEQUENCE sales_data_seq
+START WITH 101
+INCREMENT BY 1
+NOCACHE
+NOCYCLE;
+
+CREATE TABLE sales_data
+(sales_no NUMBER(8),
+employee_id    NUMBER(6),
+WEEK_ID   NUMBER(2),
+SALES   NUMBER(8,2));
+
+SELECT * FROM sales_data;
+
+
+--피벗 INSERT 실행하기(조건없는 insert)
+INSERT ALL
+INTO sales_data VALUES (1, employee_id,week_id,sales_MON)  
+INTO sales_data VALUES (1, employee_id,week_id,sales_TUE)
+INTO sales_data VALUES (1, employee_id,week_id,sales_WED)
+INTO sales_data VALUES (1, employee_id,week_id,sales_THUR)
+INTO sales_data VALUES (1, employee_id,week_id, sales_FRI)
+SELECT EMPLOYEE_ID, week_id, sales_MON, sales_TUE,
+       sales_WED, sales_THUR,sales_FRI 
+FROM sales_source_data;
+
+--시퀀스를 sales_no로 쓸거야
+UPDATE sales_data
+SET sales_no = sales_data_seq.nextval;
+
+commit;
+
+SELECT * FROM sales_data;
+-- 컬럼이 하나니까 활용가능해짐
+SELECT employee_id, SUM(sales) FROM sales_data
+GROUP BY employee_id
+ORDER by 1;
+
+COMMIT;
+
+----------------------------------------------------------------------------
+--                       <<MERGE 문 테스트>>
+--실습을 위한 emp13 테이블 생성
+@c:\db_test\sql_labs\cre_emp13.sql 
+SELECT * FROM emp13;
+
+--정보확인(4명의 사원, 200번 부서, commission_pct가 모두 0.4)
+
+--MERGE 문 실행(merge_emp13.sql)
+MERGE INTO emp13 c
+     USING employees e
+     ON (c.employee_id = e.employee_id)
+   WHEN MATCHED THEN
+     UPDATE SET
+       c.last_name      = e.last_name,
+       c.job_id         = e.job_id,
+       c.salary         = e.salary,
+       c.department_id  = e.department_id
+       --e.commission_pct IS NULL이면 넣지 않겠다는거
+      DELETE WHERE (e.commission_pct IS NULL) 
+--employees에서 commission_pct가 null인 행은 제외됨
+   WHEN NOT MATCHED THEN
+     INSERT VALUES(e.employee_id, e.last_name,e.job_id,
+          e.salary, e.commission_pct, e.department_id);
+COMMIT;
+SELECT * FROM emp13;
+
+--flashback 기능 있는지 조회( bundle로 제공되는건 당연해서 안나옴)
+SELECT * FROM v$option;
+
+--Flashback 기술 TEST
+--실습 전 Flashback Transaction Query를 위한 환경설정
+--Run SQL CommandLine 실행
+conn / as sysdba
+alter database add supplemental log data;
+alter database add supplemental log data (primary key) columns;
+grant execute on dbms_flashback to hr;
+grant select any transaction to hr;
+
+--Flashback Query Test
+SELECT salary FROM employees
+WHERE employee_id = 178;
+
+UPDATE employees
+SET salary = 12000
+WHERE employee_id = 178;
+
+COMMIT;
+
+SELECT salary FROM employees
+WHERE employee_id = 178;
+
+--flashback query(undo file)
+SELECT salary FROM employees
+--5분전꺼
+AS OF  TIMESTAMP sysdate-5/(24*60)
+WHERE employee_id = 178;
+
+UPDATE employees
+SET salary = (SELECT salary FROM employees
+                  AS OF  TIMESTAMP sysdate-5/(24*60)
+                  WHERE employee_id = 178)
+WHERE employee_id = 178;
+SELECT salary FROM employees
+WHERE employee_id = 178;
+COMMIT;
+
+--Flashback Versions Query Test
+UPDATE employees
+SET salary = 10000
+WHERE employee_id = 178;
+COMMIT;
+SELECT salary FROM employees
+WHERE employee_id = 178;
+
+--rowid같은 숨은 컬럼들
+SELECT versions_starttime, versions_endtime, salary, versions_xid
+FROM employees
+versions BETWEEN timestamp minvalue AND maxvalue
+WHERE employee_id = 178;
+
+--Flashback Transaction Query
+--Flashback Versions Query 결과의 급여 12000의 versions_xid 값 복사
+--예시 0A001B004C020000
+SELECT undo_sql FROM flashback_transaction_query
+WHERE xid = '0A000000730A0000';
+--조회결과의 undo_sql 문장을 복사에서 실행 후 복원된 값 확인
+--예시
+update "HR"."EMPLOYEES" set "SALARY" = '7000' where ROWID = 'AAAE/TAAEAAAAGWABO';
+SELECT salary FROM employees
+WHERE employee_id = 178;
+COMMIT;
+
+update "HR"."EMPLOYEES" set "SALARY" = '12000' where ROWID = 'AAAE5oAAEAAAADPABO';
+
+SELECT systimestamp FROM dual;
+
+--DB SYSTEM 시간보기
+SELECT sysdate, systimestamp FROM dual;
+--CLIENT 지역시간보기
+SELECT current_date, current_timestamp, localtimestamp
+FROM dual;
+--세션의 지역 변경 후 시간보기 다시 실습(하와이로~!)
+ALTER SESSION SET time_zone='-10:00';
+SELECT sysdate, systimestamp FROM dual;
+SELECT current_date, current_timestamp, localtimestamp
+FROM dual;
+--다시 한국
+ALTER SESSION SET time_zone='+09:00';
+
+--TIMESTAMP 데이터타입 실습(주문정보 날짜들 저장)
+CREATE TABLE orders_20
+(ord_id number(8),
+ ord_date date,
+ payment_date timestamp,
+ delivery_date timestamp with time zone,
+ receipt_date timestamp with local time zone);
+ 
+INSERT INTO orders_20
+VALUES(12345678,  sysdate, sysdate, sysdate, sysdate);
+
+COMMIT;
+
+SELECT * FROM orders_20;
+ALTER SESSION SET time_zone='-10:00';
+
+SELECT current_date, current_timestamp, localtimestamp
+FROM dual;
+
+SELECT * FROM orders_20;
+
+ALTER SESSION SET time_zone='+01:00';
+
+SELECT current_date, current_timestamp, localtimestamp
+FROM dual;
+SELECT * FROM orders_20;
+ALTER SESSION SET time_zone='+09:00';
+
+--간격저장
+CREATE TABLE prod_period
+(p_id NUMBER(2), 
+ exchange_period INTERVAL DAY TO SECOND,
+ warrant_period INTERVAL YEAR TO MONTH);
+
+INSERT INTO prod_period
+VALUES(1, INTERVAL '15' DAY, INTERVAL '3' YEAR);
+
+INSERT INTO prod_period
+VALUES(2, INTERVAL '7 12:30:00' DAY TO SECOND, INTERVAL '10-6' YEAR TO MONTH);
+COMMIT;
+
+SELECT * FROM prod_period;
+
+--주문데이터의 교환가능일자 및 보증만료일 조회(수령일기준)
+SELECT ord_id, receipt_date, receipt_date+exchange_period, receipt_date+warrant_period
+FROM orders_20 , prod_period 
+WHERE p_id = 1;
+SELECT ord_id, receipt_date, receipt_date+exchange_period, receipt_date+warrant_period
+FROM orders_20 , prod_period 
+WHERE p_id = 2;
+
+--관련함수의 활용
+--실습을 위한 EMP5 테이블 생성 (TO_YMINTERVAL: year to month) 여기서는 5년 더함
+CREATE TABLE emp5
+AS
+SELECT employee_id, last_name, hire_date+TO_YMINTERVAL('5-0') AS hire_date, department_id
+FROM employees;
+SELECT * FROM emp5;
+
+--입사일로부터 연도/월/ 추출(extract)
+-- extract 안쓸때
+SELECT employee_id, last_name, TO_char(hire_date,'yyyy')
+FROM emp5;
+
+SELECT employee_id, last_name, EXTRACT(year from hire_date) 
+FROM emp5;
+--둘 의 차이는 날짜 그대로냐 아님 문자이냐차이.
+--문자는 날짜 연산 하려면 다시 to_date로 해줘야. extract하면 변환 안하고 날짜 계산 가능.
+
+SELECT employee_id, last_name, EXTRACT(month from hire_date) 
+FROM emp5;
+SELECT employee_id, last_name, EXTRACT(day from hire_date) 
+FROM emp5;
+--day 추출시 날짜 반환
+
+--변환함수 사용과 비교
+SELECT employee_id, last_name, TO_CHAR(hire_date, 'YYYY') 
+FROM emp5;
+SELECT employee_id, last_name, TO_CHAR(hire_date, 'day') 
+FROM emp5;
+--day로 변환 시 요일 반환
+
+--TZ_OFFSET 함수로 오프셋 정보보기(표준시와의 시차 보여줌)
+SELECT TZ_OFFSET('Asia/Seoul') FROM dual;
+
+--목록보여줌 v$timezone_names
+SELECT * FROM v$timezone_names
+WHERE tzname LIKE '%Seoul%';
+
+SELECT TZ_OFFSET('Asia/Seoul') FROM dual;
+SELECT * FROM v$timezone_names
+WHERE tzname LIKE '%Japan%';
+SELECT TZ_OFFSET('Japan') FROM dual;
+
+--EMP5의 hire_date 열의 데이터타입을 timestamp 타입으로 수정
+DESC emp5
+SELECT * FROM emp5;
+
+--최대가 9까지 가능. 지금은 안쓰겠다.
+ALTER TABLE emp5
+MODIFY hire_date timestamp(0);
+
+DESC emp5;
+SELECT * FROM emp5;
+
+--평상시에 저장하지 말고 쿼리레벨에서 timezone표시하게 함. 
+--FROM_TZ함수를 사용하여 날짜데이터 옆에 timezone 표시
+SELECT employee_id, last_name, FROM_TZ(hire_date, '+09:00') AS hire_date
+FROM emp5;
+
+--TIMESTAMP 데이터유형관련 변환함수
+--TO_TIMESTAMP 함수를 사용하여 문자를 timestamp 타입 데이터로 변환
+SELECT * FROM emp5
+WHERE hire_date > TO_TIMESTAMP('01.01.2000 09:00:00','dd.mm.yyyy hh24:mi:ss');
+--TO_YMINTERVAL 함수사용으로 주문일로부터 보증기간 구하기
+SELECT ord_id, ord_date, ord_date+TO_YMINTERVAL('3-0') 
+FROM orders_20;
+--TO_DSINTERVAL 함수사용으로 주문일로부터 결제가능시간 및 교환가능기간 구하기
+SELECT ord_id, ord_date,TO_CHAR(ord_date,'yyyy/mm/dd hh24:mi:ss'), 
+       TO_CHAR(ord_date+TO_DSINTERVAL('0 02:30:00'),'yyyy/mm/dd hh24:mi:ss') AS 결제가능시간,
+       ord_date+TO_DSINTERVAL('10 00:00:00') AS 교환가능기간
+FROM orders_20; 
+--TO_DSINTERVAL  대신의 방법
+SELECT ord_id, ord_date,ADD_MONTHS(ord_date, 36)
+FROM orders_20;
+SELECT ord_id, TO_CHAR(ord_date,'yyyy/mm/dd hh24:mi:ss'), 
+       TO_CHAR(ord_date+150/(24*60),'yyyy/mm/dd hh24:mi:ss') AS 결제가능시간
+FROM orders_20;  
